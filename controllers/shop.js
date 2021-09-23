@@ -34,7 +34,7 @@ exports.getCart = async (req, res, next) => {
   const products = Product.fetchAll();
   const cartProducts = [];
 
-  for (product of products) {
+  for (const product of products) {
     const cartProductData = cart.products.find(prod => prod.id === product.id);
     if (cartProductData) {
       cartProducts.push({ productData: product, qty: cartProductData.qty });
