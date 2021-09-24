@@ -1,8 +1,8 @@
 const Product = require("../models/product");
 const Cart = require("../models/cart");
 
-exports.getProducts = (req, res, next) => {
-  const products = Product.fetchAll() || [];
+exports.getProducts = async (req, res, next) => {
+  const products = (await Product.fetchAll()) || [];
   res.render("shop/product-list", {
     prods: products,
     pageTitle: "All Products",
@@ -12,7 +12,7 @@ exports.getProducts = (req, res, next) => {
 
 exports.getProduct = async (req, res, next) => {
   const { productId } = req.params;
-  const product = Product.findById(productId);
+  const product = await Product.findById(productId);
   res.render("shop/product-detail", {
     product,
     pageTitle: product.title,
@@ -20,8 +20,8 @@ exports.getProduct = async (req, res, next) => {
   });
 };
 
-exports.getIndex = (req, res, next) => {
-  const products = Product.fetchAll() || [];
+exports.getIndex = async (req, res, next) => {
+  const products = (await Product.fetchAll()) || [];
   res.render("shop/index", {
     prods: products,
     pageTitle: "Shop",
@@ -30,43 +30,42 @@ exports.getIndex = (req, res, next) => {
 };
 
 exports.getCart = async (req, res, next) => {
-  const cart = Cart.getCart();
-  const products = Product.fetchAll();
-  const cartProducts = [];
-
-  for (product of products) {
-    const cartProductData = cart.products.find(prod => prod.id === product.id);
-    if (cartProductData) {
-      cartProducts.push({ productData: product, qty: cartProductData.qty });
-    }
-  }
+  const products = await req.user.getCart();
+  console.log("productsHere", products);
 
   res.render("shop/cart", {
     path: "/cart",
     pageTitle: "Cart",
-    products: cartProducts
+    products: products
   });
 };
 
 exports.postCart = async (req, res, next) => {
   const { productId } = req.body;
-  const { price } = Product.findById(productId);
-  Cart.addProduct(productId, price);
+  const product = await Product.findById(productId);
+  await req.user.addToCart(product);
   res.redirect("/cart");
 };
 
-exports.postCartDeleteProduct = (req, res, next) => {
+exports.postCartDeleteProduct = async (req, res, next) => {
   const { productId } = req.body;
-  const { price } = Product.findById(productId);
-  Cart.deleteProduct(productId, price);
+  await req.user.deleteItemFromCart(productId);
   res.redirect("/cart");
 };
 
-exports.getOrders = (req, res, next) => {
+exports.getOrders = async (req, res, next) => {
+  const orders = await req.user.getOrders();
+  console.log("this is orders", orders);
   res.render("shop/orders", {
     path: "/orders",
-    pageTitle: "Orders"
+    pageTitle: "Orders",
+    orders
   });
+};
+
+exports.postOrder = async (req, res, next) => {
+  await req.user.addOrder();
+  res.redirect("/orders");
 };
 
 exports.getCheckout = (req, res, next) => {

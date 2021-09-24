@@ -1,61 +1,52 @@
 const fs = require("fs");
 const path = require("path");
-
-const location = path.join(
-  path.dirname(require.main.filename),
-  "data",
-  "products.json"
-);
-
+const { ObjectId } = require("mongodb");
+const getDb = require("../database").getDb;
 const Cart = require("./cart");
 
 module.exports = class Product {
-  constructor(id, title, price, description, imageUrl) {
-    this.id = id;
+  constructor(title, price, description, imageUrl, id, userId) {
     this.title = title;
     this.price = price;
     this.description = description;
     this.imageUrl = imageUrl;
+    this._id = id ? new ObjectId(id) : null;
+    this.userId = userId ? new ObjectId(id) : null;
   }
-  static fetchAll() {
-    const data = fs.readFileSync(location);
-    console.log("data", data);
-    return data && data.length ? JSON.parse(data) : [];
+  static async fetchAll() {
+    const db = getDb();
+    return await db.collection("products").find().toArray();
   }
 
-  static findById(id) {
-    const products = this.fetchAll();
-    const product = products.find(p => p.id === id);
-    return product;
+  static async findById(id) {
+    const db = getDb();
+    return await db
+      .collection("products")
+      .find({ _id: new ObjectId(id) })
+      .next();
   }
 
   static async deleteById(id) {
-    const products = this.fetchAll();
-    const product = this.findById(id);
-    const updatedProducts = products.filter(p => p.id !== id);
-    const json = updatedProducts;
-    fs.writeFileSync(location, JSON.stringify(json));
-    Cart.deleteProduct(id, product.price);
+    const db = getDb();
+    return await db.collection("products").deleteOne({ _id: new ObjectId(id) });
+    // const products = await this.fetchAll();
+    // const product = await this.findById(id);
+    // const updatedProducts = products.filter(p => p.id !== id);
+    // const json = updatedProducts;
+    // fs.writeFileSync(location, JSON.stringify(json));
+    // Cart.deleteProduct(id, product.price);
   }
   save() {
-    let json, writeData;
-    if (this.id) {
-      // update
-      const products = Product.fetchAll();
-      const index = products.findIndex(p => p.id === this.id);
-      const updatedProducts = [...products];
-      updatedProducts[index] = this;
-      json = updatedProducts;
-      writeData = JSON.stringify(json);
+    let dbOp;
+    const db = getDb();
+    if (this._id) {
+      console.log("THIS", this);
+      dbOp = db
+        .collection("products")
+        .updateOne({ _id: this._id }, { $set: this });
     } else {
-      // create
-      this.id = Math.random().toString();
-      const data = fs.readFileSync(location);
-      json = data && data.length ? JSON.parse(data) : [];
-      const product = this;
-      json.push(product);
-      writeData = JSON.stringify(json);
+      dbOp = db.collection("products").insertOne(this);
     }
-    fs.writeFileSync(location, writeData);
+    return dbOp;
   }
 };
