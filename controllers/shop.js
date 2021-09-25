@@ -1,8 +1,9 @@
 const Product = require("../models/product");
-const Cart = require("../models/cart");
+const Order = require("../models/orders");
 
-exports.getProducts = (req, res, next) => {
-  const products = Product.fetchAll() || [];
+exports.getProducts = async (req, res, next) => {
+  const products = await Product.find();
+  // if I wanted all the user data based off user id I could use Product.find().populate("userId")
   res.render("shop/product-list", {
     prods: products,
     pageTitle: "All Products",
@@ -12,7 +13,7 @@ exports.getProducts = (req, res, next) => {
 
 exports.getProduct = async (req, res, next) => {
   const { productId } = req.params;
-  const product = Product.findById(productId);
+  const product = await Product.findById(productId);
   res.render("shop/product-detail", {
     product,
     pageTitle: product.title,
@@ -20,8 +21,8 @@ exports.getProduct = async (req, res, next) => {
   });
 };
 
-exports.getIndex = (req, res, next) => {
-  const products = Product.fetchAll() || [];
+exports.getIndex = async (req, res, next) => {
+  const products = await Product.find();
   res.render("shop/index", {
     prods: products,
     pageTitle: "Shop",
@@ -30,43 +31,54 @@ exports.getIndex = (req, res, next) => {
 };
 
 exports.getCart = async (req, res, next) => {
-  const cart = Cart.getCart();
-  const products = Product.fetchAll();
-  const cartProducts = [];
-
-  for (product of products) {
-    const cartProductData = cart.products.find(prod => prod.id === product.id);
-    if (cartProductData) {
-      cartProducts.push({ productData: product, qty: cartProductData.qty });
-    }
-  }
+  const user = await req.user.populate("cart.items.productId");
+  const products = user.cart.items;
 
   res.render("shop/cart", {
     path: "/cart",
     pageTitle: "Cart",
-    products: cartProducts
+    products: products
   });
 };
 
 exports.postCart = async (req, res, next) => {
   const { productId } = req.body;
-  const { price } = Product.findById(productId);
-  Cart.addProduct(productId, price);
+  const product = await Product.findById(productId);
+  await req.user.addToCart(product);
   res.redirect("/cart");
 };
 
-exports.postCartDeleteProduct = (req, res, next) => {
+exports.postCartDeleteProduct = async (req, res, next) => {
   const { productId } = req.body;
-  const { price } = Product.findById(productId);
-  Cart.deleteProduct(productId, price);
+  await req.user.deleteItemFromCart(productId);
   res.redirect("/cart");
 };
 
-exports.getOrders = (req, res, next) => {
+exports.getOrders = async (req, res, next) => {
+  const orders = await Order.find({ "user.userId": req.user._id });
+  console.log("this is orders", orders);
   res.render("shop/orders", {
     path: "/orders",
-    pageTitle: "Orders"
+    pageTitle: "Orders",
+    orders
   });
+};
+
+exports.postOrder = async (req, res, next) => {
+  const user = await req.user.populate("cart.items.productId");
+  const products = user.cart.items.map(i => {
+    return { quantity: i.quantity, product: { ...i.productId._doc } };
+  });
+  const order = new Order({
+    user: {
+      username: req.user.username,
+      userId: req.user
+    },
+    products
+  });
+  order.save();
+  req.user.clearCart();
+  res.redirect("/orders");
 };
 
 exports.getCheckout = (req, res, next) => {
