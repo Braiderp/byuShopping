@@ -1,8 +1,9 @@
 const Product = require("../models/product");
-const Cart = require("../models/cart");
+const Order = require("../models/orders");
 
 exports.getProducts = async (req, res, next) => {
-  const products = (await Product.fetchAll()) || [];
+  const products = await Product.find();
+  // if I wanted all the user data based off user id I could use Product.find().populate("userId")
   res.render("shop/product-list", {
     prods: products,
     pageTitle: "All Products",
@@ -21,7 +22,7 @@ exports.getProduct = async (req, res, next) => {
 };
 
 exports.getIndex = async (req, res, next) => {
-  const products = (await Product.fetchAll()) || [];
+  const products = await Product.find();
   res.render("shop/index", {
     prods: products,
     pageTitle: "Shop",
@@ -30,8 +31,8 @@ exports.getIndex = async (req, res, next) => {
 };
 
 exports.getCart = async (req, res, next) => {
-  const products = await req.user.getCart();
-  console.log("productsHere", products);
+  const user = await req.user.populate("cart.items.productId");
+  const products = user.cart.items;
 
   res.render("shop/cart", {
     path: "/cart",
@@ -54,7 +55,7 @@ exports.postCartDeleteProduct = async (req, res, next) => {
 };
 
 exports.getOrders = async (req, res, next) => {
-  const orders = await req.user.getOrders();
+  const orders = await Order.find({ "user.userId": req.user._id });
   console.log("this is orders", orders);
   res.render("shop/orders", {
     path: "/orders",
@@ -64,7 +65,19 @@ exports.getOrders = async (req, res, next) => {
 };
 
 exports.postOrder = async (req, res, next) => {
-  await req.user.addOrder();
+  const user = await req.user.populate("cart.items.productId");
+  const products = user.cart.items.map(i => {
+    return { quantity: i.quantity, product: { ...i.productId._doc } };
+  });
+  const order = new Order({
+    user: {
+      username: req.user.username,
+      userId: req.user
+    },
+    products
+  });
+  order.save();
+  req.user.clearCart();
   res.redirect("/orders");
 };
 
