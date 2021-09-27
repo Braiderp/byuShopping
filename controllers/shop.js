@@ -26,7 +26,8 @@ exports.getIndex = async (req, res, next) => {
   res.render("shop/index", {
     prods: products,
     pageTitle: "Shop",
-    path: "/"
+    path: "/",
+    csrfToken: req.csrfToken()
   });
 };
 
@@ -55,7 +56,7 @@ exports.postCartDeleteProduct = async (req, res, next) => {
 };
 
 exports.getOrders = async (req, res, next) => {
-  const orders = await Order.find({ "user.userId": req.user._id });
+  const orders = await Order.find({ userId: req.user._id });
   console.log("this is orders", orders);
   res.render("shop/orders", {
     path: "/orders",
@@ -71,7 +72,7 @@ exports.postOrder = async (req, res, next) => {
   });
   const order = new Order({
     user: {
-      username: req.user.username,
+      email: req.user.email,
       userId: req.user
     },
     products
