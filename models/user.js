@@ -3,7 +3,7 @@ const { Schema, model } = require("mongoose");
 const { ObjectId } = Schema.Types;
 
 const userSchema = new Schema({
-  username: {
+  password: {
     type: String,
     required: true
   },
