@@ -29,7 +29,11 @@ exports.getEditProduct = async (req, res, next) => {
   const editMode = Boolean(req.query.edit);
   const { productId } = req.params;
   const product = await Product.findById(productId);
-  if (!editMode || !product) {
+  if (
+    !editMode ||
+    !product ||
+    product.userId.toString() !== req.user._id.toString()
+  ) {
     return res.redirect("/");
   }
   res.render("admin/edit-product", {
@@ -52,7 +56,7 @@ exports.postEditProduct = async (req, res, next) => {
 };
 
 exports.getProducts = async (req, res, next) => {
-  const products = await Product.find();
+  const products = (await Product.find({ userId: req.user._id })) || [];
   console.log("products", products);
   res.render("admin/products", {
     prods: products,
@@ -63,6 +67,6 @@ exports.getProducts = async (req, res, next) => {
 
 exports.postDeleteProduct = async (req, res, next) => {
   const { productId } = req.body;
-  await Product.findByIdAndRemove(productId);
+  await Product.deleteOne({ _id: productId, userId: req.user._id });
   res.redirect("/admin/products");
 };

@@ -22,7 +22,9 @@ const userSchema = new Schema({
         quantity: { type: Number, required: true }
       }
     ]
-  }
+  },
+  resetToken: { type: String },
+  resetTokenExpiration: { type: Date }
 });
 
 userSchema.methods.addToCart = async function (product) {
