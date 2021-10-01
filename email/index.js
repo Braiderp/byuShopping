@@ -12,7 +12,7 @@ const transporter = nodemailer.createTransport(
 );
 
 async function sendMessage(to, subject, message) {
-  const from = "betuwishuknewbyu@gmail.com";
+  const from = "fakeEmail@gmail.com";
   await transporter.sendMail({
     to,
     from,
