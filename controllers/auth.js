@@ -4,12 +4,18 @@ const bcrypt = require("bcryptjs");
 
 const crypto = require("crypto");
 
+const { validationResult } = require("express-validator/check");
+
 const { sendMessage } = require("../email");
 
 exports.getLogin = (req, res, next) => {
+  let email,
+    password = "";
   res.render("auth/login", {
     path: "/login",
-    pageTitle: "Login"
+    pageTitle: "Login",
+    oldInput: { email, password },
+    validationErrors: []
   });
 };
 
@@ -50,16 +56,37 @@ exports.postReset = (req, res, next) => {
 };
 
 exports.getSignup = (req, res, next) => {
+  let email,
+    password,
+    confirmPassword = "";
   res.render("auth/signup", {
     path: "/signup",
-    pageTitle: "Signup"
+    pageTitle: "Signup",
+    oldInput: {
+      email,
+      password,
+      confirmPassword
+    },
+    validationErrors: []
   });
 };
 
 exports.postSignup = async (req, res, next) => {
   try {
+    const errors = validationResult(req);
     const { email, password, confirmPassword } = req.body;
+    const oldInput = { email, password, confirmPassword };
+    if (!errors.isEmpty()) {
+      req.flash("error", errors.array()[0].msg);
+      return res.status(422).render("auth/signup", {
+        path: "/signup",
+        pageTitle: "Signup",
+        oldInput,
+        validationErrors: errors && errors.array() ? errors.array() : []
+      });
+    }
     let user = await User.findOne({ email });
+
     if (user) {
       req.flash("error", "email already exists");
       return res.redirect("/signup");
@@ -83,7 +110,19 @@ exports.postSignup = async (req, res, next) => {
 };
 exports.postLogin = (req, res, next) => {
   const { email, password } = req.body;
-
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    req.flash("error", errors.array()[0].msg);
+    return res.render("auth/login", {
+      path: "/login",
+      pageTitle: "Login",
+      oldInput: {
+        email,
+        password
+      },
+      validationErrors: errors && errors.array() ? errors.array() : []
+    });
+  }
   User.findOne({ email })
     .then(user => {
       if (!user) {
@@ -103,7 +142,11 @@ exports.postLogin = (req, res, next) => {
         res.redirect("/login");
       }
     })
-    .catch(err => console.log(err));
+    .catch(err => {
+      console.log(err);
+      const e = new Error(err);
+      next(e);
+    });
 };
 
 exports.postLogout = (req, res, next) => {
@@ -126,7 +169,9 @@ exports.getNewPassword = async (req, res, next) => {
       passwordToken: token
     });
   } catch (e) {
+    const error = new Error(e);
     console.log(e);
+    next(error);
   }
 };
 
